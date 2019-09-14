@@ -1,0 +1,259 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"> 
+<html> 
+<meta charset="utf-8"/>
+    <head> 
+        <title>诚聘英才</title> 
+        <style> 
+        .black_overlay{ 
+            display: none; 
+            position: absolute; 
+            top: 0%; 
+            left: 0%; 
+            width: 100%; 
+            height: 100%; 
+            background-color: black; 
+            z-index:1001; 
+            -moz-opacity: 0.6; 
+            opacity:.60; 
+            filter: alpha(opacity=68); 
+        } 
+        .white_content { 
+            display: none; 
+            position: absolute; 
+            top: 25%; 
+            left: 25%; 
+            width: 55%; 
+            height: 55%; 
+            border: 2px solid #000000; 
+            background-color: white; 
+            z-index:1002; 
+            overflow: auto; 
+        }
+        #shut{
+    margin-top: 0px;
+    width:47px;
+    height:27px;
+    float:right;
+    background:url(a1.png) no-repeat 0px 0px;
+}
+#shut:hover{
+    background:url(b1.png) no-repeat 0px 0px;
+} 
+   #shut2{
+    margin-top: 20px;
+    width:75px;
+    height:64px;
+    float:left;
+    background:url(申请1.png) no-repeat 0px 0px;
+}
+#shut2:hover{
+    background:url(申请.png) no-repeat 0px 0px;
+} 
+body,dl,dt,dd,div,form {padding:0;margin:0;}
+
+#user_prompt,#user_phone,#pass_number,#repass_number,#birth_prompt,#email_prompt{
+    color: red;
+}
+
+td{font-size:12px}
+h1{ font-size:12px;background:#F4FBFF}
+a{
+    color:#0E69C7; text-decoration:none;
+}
+a:hover{text-decoration:underline; color:#FF6633}
+.style1 {color: #FF0000}
+
+#aption{
+    padding-left: 20px;
+    margin-left:100px;
+    margin-top: 50px;
+}
+
+
+    </style> 
+    <script type="text/javascript">
+    function $(elementId){
+    return document.getElementById(elementId);
+}
+    function A(){
+    var user=$("txtUser").value;
+    var userId=$("user_prompt");
+    userId.innerHTML="";
+    if(user.length<2 || user.length>8)
+    {
+        userId.innerHTML="请输入正确长度的名字";
+        return false;
+    }
+    for(var i=0;i<user.length;i++){
+        if(!isNaN(user.charAt(i))){
+            userId.innerHTML="您的输入有误";
+            return false;
+        }
+    }
+    return true;
+}
+     function Z(){
+    var user=$("txtPhone").value;
+    var userId=$("user_phone");
+    userId.innerHTML="";
+    if(user.length!=13)
+    {
+        userId.innerHTML="您的手机号长度有误";
+        return false;
+    }
+    // for(var i=0;i<user.length;i++){
+    //     if(isNaN(user.charAt(i))){
+    //         return true;
+    //     }
+    //     else{
+    //         userId.innerHTML="您的输入有误";
+    //         return false;
+    //     }
+    // }
+    return true;
+}
+
+     function D(){
+        var birth=$("txtBirth").value;
+        var birthId=$("birth_prompt");
+        birthId.innerHTML="";
+        if(birth.length!=10 || birth.charAt(4)!="-" || birth.charAt(7)!="-"){
+        birthId.innerHTML="请按xxxx-xx-xx输入出生日期";
+        return false;
+    }
+    var birthdays=birth.split("-");
+    year=parseInt(birthdays[0],10);
+    month=parseInt(birthdays[1],10);
+    day=parseInt(birthdays[2],10);
+    var now=new Date();
+    nowYear=now.getFullYear();
+    if(isNaN(year) || isNaN(month) || isNaN(day)){
+        birthId.innerHTML="出生日期不能包含字符";
+        return false;
+    }
+    if(year<1900 || year>nowYear)
+    {
+        birthId.innerHTML="出生年份输入有误";
+        return false;
+    }
+    if(month<=0 || month>12)
+    {
+        birthId.innerHTML="出生月份输入有误";
+        return false;
+    }
+    if(day<=0 || day>31)
+    {
+        birthId.innerHTML="出生日期输入有误";
+        return false;
+    }
+        return true;
+}
+     function checkEmail(){
+        var email=$("txtEmail").value;
+        var email_prompt=$("email_prompt");
+        email_prompt.innerHTML="";
+        var index=email.indexOf("@",1);
+        if(index==-1){
+        email_prompt.innerHTML="输入的邮箱格式中应包含'@'符号";
+        return false;   
+    }
+     if(email.indexOf(".",index)==-1){
+        email_prompt.innerHTML="输入的邮箱格式中应包含'.'符号且在'@'符号后面";
+        return false;
+  }
+      return true;
+}
+</script>
+    </head> 
+    <body> 
+        <p><a><div id="shut2" href = "JavaScript:void(0)" onclick = "document.getElementById('light').style.display='block';document.getElementById('fade').style.display='block'"></div></a></p> 
+        <div id="light" class="white_content"> 
+<a><div id="shut"  href = "javascript:void(0)" onclick = "document.getElementById('light').style.display='none';document.getElementById('fade').style.display='none'"></div>
+<div id="Aption"><table align="center" class="main">
+<!-- <tr>
+  <td >
+»欢迎您申请免费qq号码，申请过程将不会收取您任何费用。我们承诺保护您的信息安全，不会将它提供给任何第三方。<br/>
+注：<FONT color="red">*</FONT>为必填内容
+  </td>
+</tr> -->
+<tr><td><H1>您的个人信息</H1></td></tr>
+<tr>
+  <td>
+    <table width="514" align="center">
+    <tr>
+            <td width="108" align="right" > <span class="style1">*</span>姓名：</td>
+            <td width="394"><input type="text" id="txtUser" size="30" onblur="A()"/></td>
+        </tr>
+        <tr><td>&nbsp;</td>
+        <td id="user_prompt">请输入您的名字（2-8位）</td>
+        </tr>
+
+         <tr>
+            <td width="108" align="right" > <span class="style1">*</span>手机号：</td>
+            <td width="394"><input type="text" id="txtPhone" size="30" onblur="Z()"/></td>
+        </tr>
+        <tr><td>&nbsp;</td>
+        <td id="user_phone">请输入您的手机号</td>
+        </tr>
+
+        <tr>
+             <td width="110" align="right"> <span class="style1">*</span>出生日期：</td>
+            <td width="392"><input id="txtBirth" type="text" maxlength="10" onblur="D()"/></td>
+        </tr>
+        <tr><td>&nbsp;</td>
+        <td id="birth_prompt">请按xxxx-xx-xx输入出生日期</td>
+        </tr>
+        <tr>
+              <td  align="right">性别：</td>
+              <td><input name="sex" type="radio" value="male" checked="checked"/>男<input name="sex" type="radio" value="fmale"/>女</td>
+        </tr>
+        <tr>
+              <td  align="right"><span class="style1">*</span>电子邮件地址：</td>
+              <td><input id="txtEmail" type="text" onblur="checkEmail()" /></td>
+        </tr>
+        <tr><td>&nbsp;</td>
+        <td><div id="email_prompt">电子邮箱格式示例：666@qq.com</div></td>
+        </tr>       
+    </table>  
+  </td>
+</tr>
+<tr><td><H1>所在地区</H1></td></tr>
+<tr>
+  <td>
+    <table width="514" align="center">
+        <tr>
+            <td width="113" align="right" >国家：</td>
+            <td width="389"><select id="national">
+              <option value="1" selected>中华人民共和国</option>
+              <option value="2">其他地区</option>
+            </select></td>
+        </tr>
+        <tr><td align="right">省份：</td>
+        <td >
+            <select id="distract">
+              <option selected>广东</option>
+              <option value="1">福建</option>
+              <option value="2">上海</option>
+              <option value="3">北京</option>
+              <option value="4">江苏</option>
+              <option value="5">浙江</option>
+              <option value="6">海南</option>
+              <option value="7">广西</option>
+              <option value="8">其他地区</option>
+            </select>
+        </td>
+        </tr>
+    </table>  
+  </td>
+</tr>
+  <td>
+    <table width="665">
+        <tr><td align="center"><input type="submit" name="btn" value="提交申请" onclick= "document.getElementById('light').style.display='none';document.getElementById('fade').style.display='none'" </td></tr>
+    </table> 
+    
+  </td>
+</tr>
+</table></div></a></div> 
+        <div id="fade" class="black_overlay"></div> 
+    </body> 
+</html>

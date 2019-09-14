@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>用户注册</title>
+<style type="text/css">
+  input:focus,textarea:focus{
+ border:1px solid #f00;
+ background:#fcc;
+}
+textarea{
+ width:230px;
+ height:50px;
+}
+body
+{
+ font-size:15px;
+ font-family:Microsoft YaHei; 
+}
+select option{
+ font-size:10px;
+ font-family:Microsoft YaHei;
+}
+</style>
+ <script type="text/javascript">
+ function checkuse(){
+   var check; 
+   var username = document.getElementById("username").value; 
+   if (username.length > 18 || username.length < 6) { 
+    alert("用户名输入不合法，请重新输入！");
+    document.getElementById("username").focus();
+    check = false; 
+   } else { 
+    document.getElementById("checktext1").innerHTML = "* 用户名由6-18位字符组成 √"; 
+    check = true; 
+   } 
+   return check; 
+  } 
+ function checkpwd() { 
+  var check; 
+  var reg = /[^A-Za-z0-9_]+/;
+  var regs = /^[a-zA-Z0-9_\u4e00-\u9fa5] + $ /;
+  var password = document.getElementById("password").value; 
+  if (password.length < 6 || password.length > 18 || regs.test(password)) { 
+   alert("密码输入不合法，请重新输入！");
+   document.getElementById("password").focus();
+   check = false; 
+  } else { 
+   document.getElementById("checktext2").innerHTML = "* 密码由6-18位字符组成，且必须包含字母、数字和标点符号 √"; 
+   check = true; 
+  } 
+  return check; 
+ } 
+ function checkpwdc() { 
+  var check; 
+  var password = document.getElementById("password").value; 
+  var pwdc = document.getElementById("pwdc").value; 
+  if (password != pwdc) { 
+   alert("两次输入密码不一致，请重新输入！");
+   document.getElementById("pwdc").focus();
+   check = false; 
+  } else { 
+   document.getElementById("checktext3").innerHTML = "* 请再次输入你的密码 √"; 
+   check = true; 
+  } 
+  return check; 
+ }
+ function checkut(){
+  var check; 
+  if(document.getElementById("selUser").selectedIndex == 0)
+   {
+    alert("请选择用户类型！");
+    document.getElementById("selUser").focus();
+    check = false; 
+   }else{
+    document.getElementById("checktext4").innerHTML = "* 请选择用户类型 √"; 
+    check = true; 
+   }
+  return check; 
+ }
+ function checkGender(){
+  var check; 
+  var gender = "";
+  var sex = document.getElementsByName("sex");
+  for(var i=0;i<sex.length;++i){
+   if(sex[i].checked)
+    gender = sex[i].value;  
+  }
+  if(gender == "")
+   {
+    alert("请选择性别！");
+    check = false;
+   }else{
+    document.getElementById("checktext5").innerHTML = "* 请选择你的性别 √"; 
+    check = true; 
+   } 
+  return check;
+ }
+ function checkDate(){
+  var check; 
+  if(document.getElementById("txtDate").value ==""){
+    alert("请填写出生日期！");
+    document.getElementById("txtDate").focus();
+    check = false;
+   }else{
+    document.getElementById("checktext6").innerHTML = "* 请选择你的出生日期 √"; 
+    check = true;
+   }
+  return check;
+ }
+ function checkHobby(){
+  var check; 
+  var hobby = 0;
+  var objNum = document.getElementsByName("hobby");
+  for(var i=0;i<objNum.length;++i){
+   if(objNum[i].checked==true)
+    hobby++;
+  } 
+  if(hobby >=1){
+   document.getElementById("checktext7").innerHTML = "* 请选择你的兴趣爱好 √";   
+   check = true;
+  }else{
+   alert("请填写爱好！");
+   check = false;
+  }
+  return check; 
+ }
+ function checkemail(){
+  var check; 
+  var e1 = document.getElementById("email").value.indexOf("@",0);
+  var e2 = document.getElementById("email").value.indexOf(".",0);
+  if(email == "" || (e1==-1 || e2==-1) || e2<e1 )
+  {
+   alert("E_mail输入错误!");
+   document.getElementById("email").focus();
+   check = false;
+  } else { 
+   document.getElementById("checktext8").innerHTML = "* 请填写常用的EMAIL，将用于密码找回 √"; 
+   check = true; 
+  } 
+  return check; 
+ } 
+ function checkintro(){
+  var check; 
+  var intro = document.getElementById("introduction").value; 
+  if (intro.length > 100) { 
+   alert("字数超限！"); 
+   check = false; 
+  } else { 
+   document.getElementById("checktext9").innerHTML = "* 限100字内 √";
+   document.getElementById("checktext9").focus();
+   check = true; 
+  } 
+  return check; 
+ } 
+ function check() { 
+  var check = checkuse() && checkpwd() && checkpwdc() && checkut() && checkGender() && checkDate() && checkHobby()
+   && checkemail() &&checkintro(); 
+  return check; 
+ } 
+ </script>
+</head>
+<body >
+<form action="#" method="get" onsubmit="return check()" >
+<fieldset>
+<legend>
+ 表单及时验证小例子
+</legend>
+<table align="left" style="background-image: url('img/4.jpg');" >
+ <tr>
+  <td>用户名:</td>
+  <td><input type="text" name="username" id="username" onchange=" checkuse()" /></td>
+  <td id="checktext1">* 用户名由6-18位字符组成</td>
+ </tr>
+ <tr>
+  <td>密码:</td>
+  <td><input type="password" name="password" id="password" onchange="checkpwd()" /></td>
+  <td id="checktext2">* 密码由6-18位字符组成，且必须包含字母、数字和标点符号</td>
+ </tr>
+ <tr>
+  <td>确认密码：</td>
+  <td><input type="password" name="pwdc" id="pwdc" onchange="checkpwdc()" /></td>
+  <td id="checktext3">* 请再次输入你的密码</td>
+ </tr>
+ <tr>
+  <td>用户类型：</td>
+  <td>
+   <select id="selUser" onblur="checkut()">
+    <option name="selUser" value="0">请选择</option>
+    <option name="selUser" value="1">管理员</option>
+    <option name="selUser" value="2">普通用户</option>  
+   </select>
+  </td>
+  <td id="checktext4">* 请选择用户类型</td>
+ </tr>
+ <tr>
+  <td>性别：</td>
+  <td>
+   <input type="radio" value="1" name="sex" onchange="checkGender()"/>男
+   <input type="radio" value="2" name="sex" onchange="checkGender()"/>女
+  </td>
+  <td id="checktext5">* 请选择你的性别</td>
+ </tr>
+ <tr>
+  <td>出生日期：</td>
+  <td><input type="date" name="date" id="txtDate" onblur="checkDate()"/></td>
+  <td id="checktext6">* 请选择你的出生日期</td>
+ </tr>
+ <tr>
+  <td>兴趣爱好：</td>
+  <td>
+   <input type="checkbox" name="hobby" value="reading" onchange="checkHobby()">阅读
+   <input type="checkbox" name="hobby" value="music" onchange="checkHobby()">音乐
+   <input type="checkbox" name="hobby" value="sports" onchange="checkHobby()">运动
+  </td>
+  <td id="checktext7">* 请选择你的兴趣爱好</td>
+ </tr>
+ <tr>
+  <td>电子邮件：</td>
+  <td><input type="text" name="email" id="email" onchange="checkemail()"/></td>
+  <td id="checktext8">* 请填写常用的EMAIL，将用于密码找回</td>
+ </tr>
+ <tr>
+  <td>自我介绍：</td>
+  <td><textarea cols="30" rows="3" name="introduction" id="introduction" onchange="checkintro()">这是自我介绍...</textarea></td>
+  <td id="checktext9">* 限100字内</td>
+ </tr>
+ <tr>
+  <td colspan="2" align="center">
+   <input type="submit" name="submit" value="提交" />
+   <input type="reset" name="reset" value="重置" />
+  </td>
+ </tr>
+</table>
+</fieldset>
+</form>
+</body>
+</html>
