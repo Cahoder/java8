@@ -27,18 +27,24 @@ public class saxTest {
             SAXParser saxParser = saxFactory.newSAXParser();
 
             //通过sax解析器的parse方法
+            /**
+             * 我们可以重写DefaultHandler类中的三个方法
+             */
             saxParser.parse("src/xml/periodic_table.xml",new DefaultHandler(){
                 @Override
+                //这里可以获取到元素标签对的开始
                 public void startElement(String uri, String localName, String qName, Attributes attributes) throws SAXException {
                     System.out.println(qName);
                 }
 
                 @Override
+                //这里可以获取到元素标签对里面的值
                 public void characters(char[] ch, int start, int length) throws SAXException {
                     System.out.print(new String(ch,start,length));
                 }
 
                 @Override
+                //这里可以获取到元素标签对的结束
                 public void endElement(String uri, String localName, String qName) throws SAXException {
                     System.out.println(qName);
                 }
