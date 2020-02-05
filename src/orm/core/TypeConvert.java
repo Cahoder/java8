@@ -6,15 +6,15 @@ package orm.core;
 public interface TypeConvert {
     /**
      *
-     * @param DatabaseType
-     * @return
+     * @param DatabaseType 数据库数据类型
+     * @return Java数据类型
      */
-    public String DatabaseType2JavaType(String DatabaseType);
+    String DatabaseType2JavaType(String DatabaseType);
 
     /**
      *
-     * @param JavaType
-     * @return
+     * @param JavaType Java数据类型
+     * @return 数据库数据类型
      */
-    public String JavaType2DatabaseType(String JavaType);
+    String JavaType2DatabaseType(String JavaType);
 }

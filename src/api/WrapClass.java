@@ -3,6 +3,9 @@ package api;
 import java.lang.String;
 import java.util.ArrayList;
 
+/**
+ * 包装类
+ */
 public class WrapClass {
 
     //将一个基本数据类型的值放到一个对象中进行处理
