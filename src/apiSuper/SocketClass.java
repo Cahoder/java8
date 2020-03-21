@@ -46,13 +46,13 @@ public class SocketClass {
                         //给浏览器回传请求的资源
                         OutputStream respond = socket.getOutputStream();
 
-                        //1.先写入HTTP协议的响应头信息
+                        //1.先写入HTTP协议的响应行和响应头信息
                         respond.write("HTTP/1.1 200 OK\r\n".getBytes());
                         respond.write("Content-Type:text/html\r\n".getBytes());
                         //必须再写入空行，否则浏览器不解析
                         respond.write("\r\n".getBytes());
 
-                        //2.回写请求的本地的资源
+                        //2.回写请求的本地的资源(响应体信息)
                         FileInputStream fis = new FileInputStream(file);
                         int len;
                         byte[] bytes = new byte[1024];
