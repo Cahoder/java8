@@ -10,7 +10,7 @@ import java.util.Iterator;
 
 /**
  * 测试xml文件的解析和创建
- * ps: dom4j是一次性将xml加载到内存
+ * ps: dom4j是一次性将xml加载到内存,适合解析体量较小的xml文件
  */
 public class dom4jTest {
 

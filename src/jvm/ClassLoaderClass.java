@@ -87,7 +87,7 @@ public class ClassLoaderClass {
     //类加载器
     public void classLoader(){
         System.out.println("----------------------------------查看类加载器层次结构----------------------------------");
-        System.out.println("当前类的加载路径是："+System.getProperty("java.class.path"));
+        System.out.println("当前系统类加载器可以加载的路径有："+System.getProperty("java.class.path"));
         System.out.println("当前类的加载器是："+ClassLoader.getSystemClassLoader());   //sun.misc.Launcher$AppClassLoader@18b4aac2 (系统)应用程序类加载器
         System.out.print("当前类的加载器的父类加载器是："+ClassLoader.getSystemClassLoader().getParent()); //sun.misc.Launcher$ExtClassLoader@7f31245a 扩展类加载器
         System.out.print("-->"+ClassLoader.getSystemClassLoader().getParent().getParent()); //null  扩展类加载器上一层是引导类加载器(由c语言编写)，所以扩展类加载器已经没有父类加载器了

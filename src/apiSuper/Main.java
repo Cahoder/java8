@@ -1,6 +1,7 @@
 package apiSuper;
 
 import java.lang.String;
+import java.util.ArrayList;
 
 public class Main {
     public static void main(String[] args) {
@@ -33,8 +34,10 @@ public class Main {
 //        thread.threadSecureSyncCodeBlock();
 //        thread.threadSecureSyncLock();
 //        thread.threadWaitNotifyMechanism();
-//        thread.threadCreatePool(5);
+//        thread.threadSignFlagMechanism();
+//        thread.threadCreatePool(5);11
 //        thread.threadPool(5);
+//        thread.daemonThread();
 
         //Socket类
 //        SocketClass socketClass = new SocketClass();
@@ -42,6 +45,12 @@ public class Main {
 //        socketClass.uploadFileSocket();
 //        socketClass.downloadFileSocket();
 //        socketClass.BrowserServiceSocket();
+
+        //函数式接口类
+        FunctionInterfaceClass functionClass = new FunctionInterfaceClass();
+        System.out.println(functionClass.functionDemo('9'));
+        System.out.println(functionClass.predicateDemo("str if number"));
+        functionClass.consumerDemo(functionClass.supplierDemo(5));
 
         //Stream类
 //        StreamClass streamClass = new StreamClass();
@@ -61,8 +70,8 @@ public class Main {
 //        reflect.getReflectGenerics();
 
         //动态编译方式
-        DynamicCompileClass dynamicCompile = new DynamicCompileClass();
-        dynamicCompile.RuntimeExecute();
+//        DynamicCompileClass dynamicCompile = new DynamicCompileClass();
+//        dynamicCompile.RuntimeExecute();
 //        dynamicCompile.JavaCompilerExecute();
 
         //动态脚本引擎

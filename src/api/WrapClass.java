@@ -11,7 +11,10 @@ public class WrapClass {
     //将一个基本数据类型的值放到一个对象中进行处理
     public void integerWarp(){
 
-        //以下两种写法都可以
+        /*  以下两种写法都可以,但是有一定的区别:
+            Integer 使用了对象缓存机制，默认范围是 -128 ~ 127 ，推荐使用静态工厂方法 valueOf 获取对象实
+            例,而不是 new ,因为 valueOf 使用缓存, 而 new 一定会创建新的对象分配新的内存空间;
+        */
         Integer int1 = new Integer(100);
         Integer int2 = Integer.valueOf(100);
 

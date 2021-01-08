@@ -49,13 +49,6 @@ public class Main {
 
 
 
-
-
-
-
-
-
-
         //研究Java垃圾回收finalize()机制
 //        finalizeShow(args);
         //DeathCondition();

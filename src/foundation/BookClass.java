@@ -10,6 +10,9 @@ public class BookClass {
     void checkIn() {
         checkedOut = false;
     }
+
+    @Override
+    //相当于析构函数,一旦这个对象会被gc回收,就会触发此函数
     public void finalize() {
         if(checkedOut)
             System.out.println("Error: checked out");

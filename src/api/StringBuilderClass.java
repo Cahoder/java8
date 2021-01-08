@@ -7,7 +7,7 @@ public class StringBuilderClass {
     /*
     *普通的String类 进行操作会在内存中产生很多的新字符串影响效率
     *
-    * StringBuilder类
+    * StringBuilder类 非线程安全    VS    StringBuffer类 线程安全
     * 通过利用字符串内存缓冲区，可以提高字符串操作的效率（看成一个长度可变的字符串）
     * 底层也是一个byte[]数组，但是没有被final关键字修饰，可以改变长度
     * 默认byte【】 value = new byte[16]  ==》   超出长度会自动扩容
