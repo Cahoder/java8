@@ -15,6 +15,7 @@ import algorithm.structure.tree.binary.BST;
 import algorithm.structure.tree.binary.RBT;
 import algorithm.structure.tree.binary.printer.BinaryTrees;
 import algorithm.structure.tree.binary.printer.Visitor;
+import algorithm.structure.union.*;
 
 import java.util.Arrays;
 
@@ -25,7 +26,7 @@ public class Main {
 //        MyListTest(new SingleLinkedListCircle<>());
 //        MyListTest(new LinkedList<>());
 //        MyListTest(new LinkedListCircle<>());
-        josephusProblem(8,3);
+//        josephusProblem(8,3);
 //        MyListTest(new ArrayListPro<>());
 //        MyQueueTest();
 //        MyTreeTest();
@@ -36,6 +37,37 @@ public class Main {
 //        MySetTest();
 //        ListSet_TreeSet_EfficiencyTest();
 //        MyMapTest();
+        MyUnionFindTest();
+    }
+
+    private static void MyUnionFindTest() {
+//        UnionFind uf = new UnionFind_QF(12);
+//        UnionFind uf = new UnionFind_QU(12);
+//        UnionFind uf = new UnionFind_QU_S(12);
+//        UnionFind uf = new UnionFind_QU_R(12);
+//        UnionFind uf = new UnionFind_QU_R_PC(12);
+//        UnionFind uf = new UnionFind_QU_R_PS(12);
+        UnionFind uf = new UnionFind_QU_R_PH(12);
+//        GenericUnionFind<Integer> uf = new GenericUnionFind<>();
+//        for (int i = 0; i < 12; i++) uf.makeSet(i);
+
+        uf.union(0,4);
+        uf.union(0,3);
+        uf.union(0,1);
+        uf.union(2,3);
+        uf.union(2,5);
+        uf.union(3,5);
+
+        uf.union(6,7);
+
+        uf.union(8,9);
+        uf.union(8,10);
+        uf.union(9,10);
+        uf.union(9,11);
+
+        System.out.println(uf.isSame(6,0));
+        System.out.println(uf.isSame(6,10));
+        System.out.println(uf.isSame(0,2));
     }
 
     private static void MyMapTest() {
@@ -426,7 +458,7 @@ public class Main {
         System.out.println(list);
     }
     //约瑟夫问题
-    private static void josephusProblem(int totoal,int interval){
+    private static void josephusProblem(int totoal,int interval) {
         LinkedListCircle<Integer> list = new LinkedListCircle<>();
         for (int i = 1; i <= totoal; i++) list.add(i);
         list.reset();

@@ -9,7 +9,7 @@ public class Main {
 //        productConsumeByJUCTest();
 //        CollectionTest();
 //        CountDownLatchTest();
-//        CyclicBarrierTest();
+        CyclicBarrierTest();
 //        SemaphoreTest();
 //        ReadWriteLockTest();
 //        BlockingQueueApiTest();
@@ -18,7 +18,7 @@ public class Main {
 //        ForkJoinTest();
 //        FutureTest();
 //        CASTest();
-        SpinLockTest();
+//        SpinLockTest();
     }
 
     private static void SpinLockTest() {

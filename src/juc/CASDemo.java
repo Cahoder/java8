@@ -2,6 +2,7 @@ package juc;
 
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicStampedReference;
 
 /**
@@ -46,12 +47,27 @@ public class CASDemo {
         解决方法: 原子引用 -- - 带版本号的cas
      */
     public void test2(){
+        //AtomicInteger 对整数进行原子操作,如果是一个POJO呢?可以用 AtomicReference 来包装这个POJO,使其操作原子化
+        AtomicReference<CASDemo> atomicRefer = new AtomicReference<>();
+        CASDemo caseD1 = new CASDemo();
+        CASDemo caseD2 = new CASDemo();
+        System.out.println(caseD1 + "-" + caseD2);
+        atomicRefer.set(caseD1);
+        System.out.println(atomicRefer.compareAndSet(caseD1,caseD2)+"\t"+atomicRefer.get()); // true,此时原子引用改成了caseD2
+        System.out.println(atomicRefer.compareAndSet(caseD1,caseD2)+"\t"+atomicRefer.get()); // false
+
         //AtomicReference<Integer> atomicRefer = new AtomicReference<>(2020);
         //注意Integer包装类,在-128和127之间的赋值,Integer对象是在IntegerCache.cache产生
         //会复用已有的对象,因此compareAndSet底层使用==进行比较会出问题,推荐使用equals进行判断
         final AtomicStampedReference<Integer> atomStampRefer = new AtomicStampedReference<>(1,1);
 
         new Thread(()->{
+            /*
+             * expectedReference, 预期值引用
+             * newReference, 新值引用
+             * expectedStamp, 预期值时间戳
+             * newStamp, 新值时间戳
+             */
             boolean a = atomStampRefer.compareAndSet(1, 2, 1, 2);
             System.out.println(Thread.currentThread().getName() + " : " + a);
             System.out.println(Thread.currentThread().getName() + " : " + atomStampRefer.getStamp());
