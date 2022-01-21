@@ -12,7 +12,12 @@
 
   前者不响应直到IO资源就绪，后者先返回一个标记(后续利用事件机制通知)
 
-### 传统BIO通信方式
+- IO交互经历的两个阶段
+
+  1. 等待数据准备好（复制到内核中某缓冲区）
+  2. 从内核（缓冲区）向进程复制数据
+
+### BIO通信方式
 
 - 并发请求串行化，无法满足业务场景
 - 服务端多线程优化的局限性（伪异步方式）
@@ -21,12 +26,45 @@
   3. 每个线程jvm都要分配堆栈空间，即使ThreadPoolExecutor线程池一样会引发BlockingQueue积压
   4. 如果应用为长连接，线程不能及时关闭会导致系统资源的消耗更失控
 
-### Unix 5种IO模型
+### NIO通信方式
 
-- Unix IO模型简介
-  - IO交互经历的两个阶段
-    1. 等待数据准备好（复制到内核中某缓冲区）
-    2. 从内核（缓冲区）向进程复制数据
+- NIO以多字节块的方式处理数据（IO以单字节流的方式）
+
+- 新增通道、缓冲区、选择器
+
+  - Channel是对原IO流的模拟（流是单工方式，通道是全双工）
+
+    - FileChannel : 从文件中读写数据
+
+    - DatagramChannel : 通过 UDP 读写网络中数据
+
+    - SocketChannel : 通过 TCP 读写网络中数据
+
+    - ServerSocketChannel : 监听新进来的 TCP 连接，对每一个新连接都会创建一个SocketChannel
+
+  - Buffer是通道数据读写必经之路（缓冲区提供了对数据的结构化访问/跟踪系统的读写进程）
+
+    - 缓冲区类型：ByteBuffer CharBuffer ShortBuffer IntBuffer LongBuffer FloatBuffer DoubleBuffer
+    - 缓冲区状态变量：capacity(最大容量)  position(已读写字节数)  limit(剩余可读写字节数)
+
+  - Selector让单个线程使用一个选择器轮询监听多个通道（Reactor模型）
+
+    <!--需配置监听的通道 Channel 为非阻塞-->
+
+    ![选择器模型](https://pdai.tech/_images/pics/4d930e22-f493-49ae-8dff-ea21cd6895dc.png)
+
+    - 将通道注册到选择器上，需指定要注册的具体事件
+
+    ```java
+    public class SelectionKey {
+        public static final int OP_READ = 1 << 0;
+        public static final int OP_WRITE = 1 << 2;
+        public static final int OP_CONNECT = 1 << 3;
+        public static final int OP_ACCEPT = 1 << 4;
+    }
+    ```
+
+### Unix 5种IO模型
 
 - 阻塞式 IO - BIO
 
