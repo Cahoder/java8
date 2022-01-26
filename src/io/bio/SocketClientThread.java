@@ -29,7 +29,7 @@ public class SocketClientThread implements Runnable {
 
         try {
 
-            socket = new Socket("127.0.0.1", 83);
+            socket = new Socket("127.0.0.1", 8888);
             clientRequest = socket.getOutputStream();
             clientResponse = socket.getInputStream();
 
@@ -37,7 +37,7 @@ public class SocketClientThread implements Runnable {
             this.latch.await();
 
             //发送请求信息
-            clientRequest.write(("这是第 " + this.clientIdx + " 个客户端的请求。").getBytes());
+            clientRequest.write(("这是第 " + this.clientIdx + " 个客户端的请求客户端的请求客户端的请求客户端的请求客户端的请求客户端的请求客户端的请求客户端的请求客户端的请求客户端的请求客户端的请求客户端的请求客户端的请求客户端的请求客户端的请求客户端的请求客户端的请求客户端的请求客户端的请求客户端的请求客户端的请求客户端的请求客户端的请求客户端的请求客户端的请求客户端的请求客户端的请求客户端的请求客户端的请求客户端的请求客户端的请求。(over)").getBytes());
             clientRequest.flush();
 
             //监听返回信息

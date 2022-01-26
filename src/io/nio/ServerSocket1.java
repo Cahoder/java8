@@ -25,7 +25,7 @@ public class ServerSocket1 {
         serverChannel.configureBlocking(false);
         ServerSocket serverSocket = serverChannel.socket();
         serverSocket.setReuseAddress(true);
-        serverSocket.bind(new InetSocketAddress(83));
+        serverSocket.bind(new InetSocketAddress(8888));
 
         Selector selector = Selector.open();
         //注意: 服务器通道只能注册SelectionKey.OP_ACCEPT事件

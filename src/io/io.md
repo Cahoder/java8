@@ -170,10 +170,124 @@
 
     ![](https://pdai-1257820000.cos.ap-beijing.myqcloud.com/pdai.tech/public/_images/io/java-io-nio-5.png)
 
+### NIO零拷贝实现
+
+- Java NIO框架对零拷贝的几种实现
+
+  Java NIO中的**Channel**相当于OS中Kernel Space的缓冲区，而**Buffer**对应OS中User Space的缓冲区
+
+  - 通道是全双工（双向传输），即可能是读缓冲区，也可能是网络缓冲区
+
+  - 缓冲区分为堆内存（HeapBuffer）和堆外内存（DirectBuffer，通过malloc()分配的用户态内存）
+
+  HeapBuffer中数据会面临被JVM GC的风险，因此NIO会先调用`sun.misc.Unsafe.copyMemory()`把HeapBuffer中数据拷贝到临时的DirectBuffer中的本地内存(native memory)，背后原理与memcpy()类似，所以注意DirectBuffer需要应用程序手动释放。最后将拷贝到DirectBuffer中的数据内存地址返给IO调用函数，避免再次访问Java对象处理IO读写。
+  
+  <!--所以我们是否能够提供一个目标文件作为本地内存地址映射达到零拷贝目标？-->
+  
+  > **MappedByteBuffer（基于mmap内存映射方式）**
+  >
+  > - 它继承自ByteBuffer，FileChannel中定义了一个map抽象方法（`sun.nio.ch.FileChannelImpl.java` 类负责实现）
+  >
+  >   ```java
+  >   public abstract MappedByteBuffer map(MapMode mode, long position, long size)
+  >       throws IOException;
+  >   //mode：限定内存映射区域（MappedByteBuffer）对内存映像文件的访问模式，包括只可读（READ_ONLY）、可读可写（READ_WRITE）和写时拷贝（PRIVATE）三种模式。
+  >   //position：文件映射的起始地址，对应内存映射区域（MappedByteBuffer）的首地址。
+  >   //size：文件映射的字节长度，从 position 往后的字节数，对应内存映射区域（MappedByteBuffer）的大小。
+  >
+  >   该抽象方法的实现类通过调用map0方法获取指定内存的数据
+  >   private native long map0(int prot, long position, long mapSize) 
+  >       throws IOException;
+  >   map0底层通过调用sun.misc.Unsafe类中的getByte()和putByte()方法读写数据替代了IO对象中的read()和write()方法
+  >   ```
+  >
+  > - MappedByteBuffer 相比 ByteBuffer 新增了 fore()、load() 和 isLoad() 三个重要的方法
+  >
+  >   ```java
+  >   //fore()：对于处于 READ_WRITE 模式下的缓冲区，把对缓冲区内容的修改强制刷新到本地文件。 //load()：将缓冲区的内容载入物理内存中，并返回这个缓冲区的引用。
+  >   //isLoaded()：如果缓冲区的内容在物理内存中，则返回 true，否则返回 false。
+  >   ```
+  >
+  > - MappedByteBuffer 使用堆外的虚拟内存,因此不受JVM的 -Xmx 参数限制，但map文件的大小超过Integer.MAX_VALUE 字节，需要通过 position 参数重新 map 文件后面的内容
+  >
+  > - MappedByteBuffer 在处理大文件时性能的确很高，但也存内存占用、文件关闭不确定等问题，被其打开的文件只有在垃圾回收的才会被关闭，而且这个时间点是不确定的
+  >
+  > - MappedByteBuffer 提供了文件映射内存的 mmap() 方法，也提供了释放映射内存的 unmap() 方法。然而 unmap() 是 FileChannelImpl 中的私有方法，无法直接显示调用。因此用户程序需要通过 Java 反射的调用 sun.misc.Cleaner 类的 clean() 方法手动释放映射占用的内存区域
+  >
+  >   ```java
+  >   public static void clean(final Object buffer) throws Exception {
+  >       AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
+  >           try {
+  >               Method getCleanerMethod = buffer.getClass().getMethod("cleaner", new Class[0]);
+  >               getCleanerMethod.setAccessible(true);
+  >               Cleaner cleaner = (Cleaner) getCleanerMethod.invoke(buffer, new Object[0]);
+  >               cleaner.clean();
+  >           } catch(Exception e) {
+  >               e.printStackTrace();
+  >           }
+  >       });
+  >   }
+  >   ```
+  
+  > **DirectByteBuffer（直接使用堆外用户态内存方式）**
+  >
+  > - 一般通过ByteBuffer类中静态方法调用
+  >
+  >   ```java
+  >   public static ByteBuffer allocateDirect(int capacity) {
+  >       return new DirectByteBuffer(capacity);
+  >   }
+  >   ```
+  >
+  > - DirectByteBuffer内部实现通过Unsafe 的本地方法 allocateMemory() 进行内存分配，底层调用的是操作系统的 malloc() 函数
+  >
+  > - 初始化 DirectByteBuffer 时还会创建一个 Deallocator 线程，并通过 Cleaner 的 freeMemory() 方法来对直接内存进行回收操作，freeMemory() 底层调用的是操作系统的 free() 函数
+  >
+  > - 实际上MappedByteBuffer的内存映射底层就是通过反射获取DirectByteBuffer实例进行内存操作
+  
+  > **FileChannel（实现通道之间数据传输方式）**
+  >
+  > - 用于文件读写、映射和操作的通道，同时它在并发环境下是线程安全
+  >
+  > - FileInputStream FileOutputStream 或者 RandomAccessFile 的 getChannel() 方法
+  >
+  >   可以创建并打开一个文件通道
+  >
+  > - FileChannel中定义了transferTo和transferFrom抽象方法实现通道之间数据传输
+  >
+  >   （`sun.nio.ch.FileChannelImpl.java` 类负责实现）
+  >
+  >   ```java
+  >   //通过 FileChannel 把文件里面的源数据写入一个 WritableByteChannel 的目的通道
+  >   public abstract long transferTo(long position, long count, WritableByteChannel target) throws IOException;
+  >   
+  >   //把一个源通道 ReadableByteChannel 中的数据读取到当前 FileChannel 的文件里面
+  >   public abstract long transferFrom(ReadableByteChannel src, long position, long count) throws IOException;
+  >   
+  >   
+  >   以上两者底层实现都是通过OS进行系统调用sendfile()函数实现零拷贝操作
+  >   ```
+
 ### 多路复用IO的优缺点
 
-- 不再使用多线程进行IO处理（对OS的内核IO而言，应用进程还是可以引入线程池技术）
+- ![](https://pdai-1257820000.cos.ap-beijing.myqcloud.com/pdai.tech/public/_images/io/java-io-aio-2.png)不再使用多线程进行IO处理（对OS的内核IO而言，应用进程还是可以引入线程池技术)
 - 同一个端口可以处理多种协议（ServerSocketChannel既可以处理TCP协议又可以处理UDP协议）
 - 操作系统级别优化：同一端口同时接受多个客户端的IO事件（兼具阻塞式同步IO和非阻塞式同步IO特点）
 - 类属同步IO：阻塞式IO、非阻塞式IO、多路复用IO，都是基于OS级别对“同步IO”的实现（同步IO不会主动告知上层事件发生）
 
+### AIO通信方式（订阅-通知）
+
+- 即应用程序向操作系统注册IO监听，然后继续做自己的事情
+- 当OS发生IO事件，且准备好数据后主动通知应用程序，触发相应的函数
+
+![](https://pdai-1257820000.cos.ap-beijing.myqcloud.com/pdai.tech/public/_images/io/java-io-aio-1.png)
+
+- 跟同步IO一样，底层依赖操作系统进行异步IO支持
+  - windows提供一种异步IO技术（IOCP 即 I/O Completion Port， I/O完成端口）
+  - Linux则通过Epoll对异步IO进行模拟实现
+
+### Java对AIO的支持
+
+- jvm根据不同的操作系统实现AsynchronousXXXChannelImpl支持
+
+  ![](https://pdai-1257820000.cos.ap-beijing.myqcloud.com/pdai.tech/public/_images/io/java-io-aio-2.png)
