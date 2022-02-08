@@ -241,6 +241,8 @@
   >
   > - DirectByteBuffer内部实现通过Unsafe 的本地方法 allocateMemory() 进行内存分配，底层调用的是操作系统的 malloc() 函数
   >
+  >   [Java魔法类：Unsafe应用解析](https://tech.meituan.com/2019/02/14/talk-about-java-magic-class-unsafe.html)
+  >
   > - 初始化 DirectByteBuffer 时还会创建一个 Deallocator 线程，并通过 Cleaner 的 freeMemory() 方法来对直接内存进行回收操作，freeMemory() 底层调用的是操作系统的 free() 函数
   >
   > - 实际上MappedByteBuffer的内存映射底层就是通过反射获取DirectByteBuffer实例进行内存操作
@@ -263,9 +265,10 @@
   >   
   >   //把一个源通道 ReadableByteChannel 中的数据读取到当前 FileChannel 的文件里面
   >   public abstract long transferFrom(ReadableByteChannel src, long position, long count) throws IOException;
-  >   
-  >   
+  >
+  >
   >   以上两者底层实现都是通过OS进行系统调用sendfile()函数实现零拷贝操作
+  >
   >   ```
 
 ### 多路复用IO的优缺点
