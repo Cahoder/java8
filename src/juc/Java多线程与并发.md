@@ -89,6 +89,7 @@
   2. Daemon线程
   3. sleep()
   4. yield()
+  
 - 线程的中断方式有哪些?
   1. 当线程任务完成时会中断
   2. 当线程任务出现异常时会中断
@@ -99,10 +100,13 @@
 - 线程互斥同步
   1. synchronized（jvm层面实现、等待过程不可中断、绝对非公平的、只有一个上锁条件）
   2. ReentrantLock（jdk层面实现、等待过程可中断、支持公平/非公平、允许绑定多个Condition对象）
+  
 - 线程之间协作
   1. Thread的join()
   2. Object的wait() notify() notifyAll()
   3. Condition的await() signal() signalAll()
+  
+  - *[协作方式对比](https://pdai.tech/md/java/thread/java-thread-x-lock-LockSupport.html#%E6%9B%B4%E6%B7%B1%E5%85%A5%E7%9A%84%E7%90%86%E8%A7%A3)*
 
 #### 加锁与释放锁
 
@@ -176,17 +180,143 @@ Java SE 1.6里同步锁，一共有四种状态：`无锁`>`偏向锁`>`轻量�
 
     <!--AQS框架实现借助两个类：Unsafe提供CAS 和 LockSupport提供线程挂起恢复-->
 
-    
+    - 核心思想
+
+      case（共享资源空闲）then
+
+      ​	将当前请求资源的线程设置为有效的工作线程，并锁定共享资源
+
+      ​	`private volatile int state; //表示同步状态,通过CAS修改`
+
+      case（共享资源锁定）then
+
+      ​	通过一套线程阻塞等待以及被唤醒时锁分配机制管理（CLH队列锁）
+
+    - 资源共享方式
+
+      1. Exclusive(独占)：有且仅有一个工作线程，如ReentrantLock。
+
+         其余线程按锁抢占机制又可分为：
+
+         - 公平锁：按线程在队列中顺序先后拿锁
+         - 非公平锁：无视队列顺序直接去抢锁
+
+      2. Share(共享)：允许多个线程可同时执行，如Semaphore、CountDownLatch、CyclicBarrier。
+
+      <!-- ReadWriteLock下的实现ReentrantReadWriteLock可看成是组合式，
+           ReentrantReadWriteLock.WriteLock是Exclusive的，
+           ReentrantReadWriteLock.ReadLock是Share的。-->
+
+    - 实现设计模式 - 模板方法，自定义同步器时需要重写下面几个AQS提供的模板方法
+
+      ```java
+      //默认情况下，以下每个方法都会抛出UnsupportedOperationException。
+      //同时自定义的同步器对这些方法的实现必须是内部线程安全的，并且通常应该简短而不是阻塞。
+      isHeldExclusively()//该线程是否正在独占资源。只有用到condition才需要去实现它。
+      tryAcquire(int)//独占方式。尝试获取资源，成功则返回true，失败则返回false。
+      tryRelease(int)//独占方式。尝试释放资源，成功则返回true，失败则返回false。
+      tryAcquireShared(int)//共享方式。尝试获取资源。负数表示失败；0表示成功，但没有剩余可用资源；正数表示成功，且有剩余资源。
+      tryReleaseShared(int)//共享方式。尝试释放资源，成功则返回true，失败则返回false。
+      ```
+
+    - 内部数据结构
+
+      CLH(Craig,Landin,and Hagersten)队列，它是一个虚拟的双向队列(不存在队列实例，仅存在结点间的关联关系)。AQS是将每条请求共享资源的线程封装成一个CLH锁队列的一个结点(Node)来实现锁的分配。
+
+      ```java
+      static final class Node {
+          // 资源共享模式，分为共享与独占
+          static final Node SHARED = new Node();
+          static final Node EXCLUSIVE = null;        
+          // 结点状态
+          // CANCELLED，值为1，表示当前的线程被取消
+          // SIGNAL，值为-1，表示当前节点的后继节点包含的线程需要运行，也就是unpark
+          // CONDITION，值为-2，表示当前节点在等待condition，也就是在condition队列中
+          // PROPAGATE，值为-3，表示当前场景下后续的acquireShared能够得以执行
+          // 值为0，表示当前节点在sync队列中，等待着获取锁
+          static final int CANCELLED =  1;
+          static final int SIGNAL    = -1;
+          static final int CONDITION = -2;
+          static final int PROPAGATE = -3;        
+      
+          // 结点状态
+          volatile int waitStatus;        
+          // 前驱结点
+          volatile Node prev;    
+          // 后继结点
+          volatile Node next;        
+          // 结点所对应的线程
+          volatile Thread thread;        
+          // 下一个等待者
+          Node nextWaiter;
+          
+          // 结点是否在共享模式下等待
+          final boolean isShared() {
+              return nextWaiter == SHARED;
+          }
+          
+          // 获取前驱结点，若前驱结点为空，抛出异常
+          final Node predecessor() throws NullPointerException {
+              // 保存前驱结点
+              Node p = prev; 
+              if (p == null) // 前驱结点为空，抛出异常
+                  throw new NullPointerException();
+              else // 前驱结点不为空，返回
+                  return p;
+          }
+          
+          // Used to establish initial head or SHARED marker
+          Node() {}
+          
+          // Used by addWaiter
+          Node(Thread thread, Node mode) {  
+              this.nextWaiter = mode;
+              this.thread = thread;
+          }
+          
+          // Used by Condition
+          Node(Thread thread, int waitStatus) {
+              this.waitStatus = waitStatus;
+              this.thread = thread;
+          }
+      }
+      ```
+
+      AQS通过CLH数据结构实现了两种同步队列：
+
+      1. Sync queue，即同步队列，是双向链表，包括head结点和tail结点，head结点主要用作后续的调度。
+      2. Condition queue，其不是必须的，其是一个单向链表，只有当使用Condition时，才会存在此单向链表。并且可能会有多个Condition queue。
+
+      ![](https://pdai.tech/_images/thread/java-thread-x-juc-aqs-1.png)
+
+    - 内部实现类
+
+      
+
+    - 核心方法分析
 
   - **LockSupport**锁常用类：实现类似Thread中suspend()阻塞和resume()解除阻塞，但不会导致死锁问题
 
     <!--该类的park()和unpark()方法 - 依赖 - Unsafe的park()和unpark()实现-->
 
+    - park()和unpark()的先后调用顺序不影响同步效果
+    - park()阻塞不会释放线程上的锁资源（Condition.await()负责释放）
+    - park()被另一个线程unpark()唤醒后，一定会继续执行后续内容
+    - 如下三种情况会导致已阻塞的线程解除阻塞
+      1. 其他某个线程将当前线程作为目标调用unpark()
+      2. 其他某个线程中断当前线程
+      3. 该调用不合逻辑地(即毫无理由地)返回
+
   - ReentrantLock锁常用类：具有synchronized语法相同功能，但功能更强大灵活
+
   - ReentrantReadWriteLock锁常用类：ReadWriteLock接口的实现类，通过维护Lock的子类ReadLock和WriteLock实现
+
   - CountDownLatch工具类：同步辅助类，在一组其他线程完成任务之前，允许阻塞一个或多个线程等待
+
   - CyclicBarrier工具类：同步辅助类，允许一组线程互相等待，直到到达某个公共屏障点
+
   - Semaphore工具类：本质上该信号量维护了一个许可集
+
   - Exchanger工具类：允许两个线程之间的数据交换
 
 - collections并发集合类关系总览

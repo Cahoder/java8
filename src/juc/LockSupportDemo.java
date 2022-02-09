@@ -76,24 +76,52 @@ public class LockSupportDemo {
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
+
             // 获取主线程blocker
             System.out.println("thread blocker info : " + LockSupport.getBlocker((Thread) sync));
-            // 释放主线程许可
+
+            // 调用unPark()或发生中断 均会释放主线程许可
             LockSupport.unpark((Thread) sync);
+            //((Thread) sync).interrupt();
+
             // 休眠500ms，保证先执行main线程park()中的setBlocker(t, null);
             try {
                 Thread.sleep(500);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
+
             // 此时获取主线程blocker为null
             System.out.println("thread blocker info : " + LockSupport.getBlocker((Thread) sync));
             System.out.println("thread after unpark");
         }
 
         public static void main(String[] args) {
+            //unPark()和park()同步不受调用顺序影响
+            //invokeParkThenUnPark();
+            invokeUnParkThenPark();
+        }
+
+        @SuppressWarnings("all")
+        private static void invokeParkThenUnPark() {
             Thread thread = new ParkUnParkSync(Thread.currentThread());
             thread.start();
+            System.out.println("main before park");
+            // 阻塞主线程许可
+            LockSupport.park("i am main blocker");
+            System.out.println("main after park");
+        }
+
+        @SuppressWarnings("all")
+        private static void invokeUnParkThenPark() {
+            Thread thread = new ParkUnParkSync(Thread.currentThread());
+            thread.start();
+            try {
+                System.out.println("main sleep 1s ...");
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
             System.out.println("main before park");
             // 阻塞主线程许可
             LockSupport.park("i am main blocker");
