@@ -98,8 +98,8 @@
   5. 当只想中断Executor中的某一个线程，使用submit() 方法来提交一个线程，它会返回一个 Future<?> 对象，通过调用该对象的 cancel(true) 方法就可以单独中断该线程
 
 - 线程互斥同步
-  1. synchronized（jvm层面实现、等待过程不可中断、绝对非公平的、只有一个上锁条件）
-  2. ReentrantLock（jdk层面实现、等待过程可中断、支持公平/非公平、允许绑定多个Condition对象）
+  1. synchronized（jvm层面实现、等待过程不可中断、绝对非公平的、只有一个上锁条件；1.6之前无论并发程序是否存在竞争，都会调用OS的mutex）
+  2. ReentrantLock（jdk层面实现、等待过程可中断、支持公平/非公平、允许绑定多个Condition对象；如果并发程序不存在竞争，则不会调用OS的park）
   
 - 线程之间协作
   1. Thread的join()
@@ -173,6 +173,8 @@ Java SE 1.6里同步锁，一共有四种状态：`无锁`>`偏向锁`>`轻量�
   - ReadWriteLock接口：维护一对相关的锁。读锁共享，写锁独占
 
   - AbstractOwnableSynchonizer抽象类：为一切线程独占（所有权）同步器奠定基础概念
+
+    `private transient Thread exclusiveOwnerThread; \\当前持有锁的线程`
 
   - AbstractQueuedLongSynchronizer抽象类：AbstractQueuedSynchonizer抽象类的long版本
 
@@ -284,16 +286,62 @@ Java SE 1.6里同步锁，一共有四种状态：`无锁`>`偏向锁`>`轻量�
 
       AQS通过CLH数据结构实现了两种同步队列：
 
-      1. Sync queue，即同步队列，是双向链表，包括head结点和tail结点，head结点主要用作后续的调度。
-      2. Condition queue，其不是必须的，其是一个单向链表，只有当使用Condition时，才会存在此单向链表。并且可能会有多个Condition queue。
-
       ![](https://pdai.tech/_images/thread/java-thread-x-juc-aqs-1.png)
 
-    - 内部实现类
+      1. Sync queue，即同步队列，是双向链表，包括head结点和tail结点，head结点主要用作后续的调度。
 
-      
+         ```java
+         public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchronizer
+             implements java.io.Serializable {
+             private transient volatile Node head;
+             private transient volatile Node tail;
+         }
+         ```
+
+      2. Condition queue，其不是必须的，其是一个单向链表，只有当使用Condition时，才会存在此单向链表。并且可能会有多个Condition queue。
+
+         ```java
+         public class ReentrantLock implements Lock, java.io.Serializable {
+             private final Sync sync;
+             abstract static class Sync extends AbstractQueuedSynchronizer {
+                 final ConditionObject newCondition() {
+                     return new ConditionObject();
+                 }
+             }
+             //用户调用newCondition()方法就会产生Condition Queue
+             public Condition newCondition() {
+                 return sync.newCondition();
+             }
+         }
+         public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchronizer
+             implements java.io.Serializable {
+             public class ConditionObject implements Condition, java.io.Serializable {
+                 ...
+             }
+         }
+         ```
 
     - 核心方法分析
+
+      ```java
+      //拿到锁：方法正常返回，拿不到锁或者获取队列失败：自我中断
+      public final void acquire(int arg) {
+          //tryAcquire()用于处理大部分无竞争关系的并发程序
+          //acquireQueued(addWaiter())用于处理存在竞争关系的并发程序该如何竞争
+          if (!tryAcquire(arg) &&
+              acquireQueued(addWaiter(Node.EXCLUSIVE), arg))
+              selfInterrupt();
+      }
+      
+      //用于判断当前线程在公平模式下是否需要排队
+      public final boolean hasQueuedPredecessors() {
+          Node t = tail;
+          Node h = head;
+          Node s;
+          return h != t &&
+              ((s = h.next) == null || s.thread != Thread.currentThread());
+      }
+      ```
 
   - **LockSupport**锁常用类：实现类似Thread中suspend()阻塞和resume()解除阻塞，但不会导致死锁问题
 
@@ -308,6 +356,32 @@ Java SE 1.6里同步锁，一共有四种状态：`无锁`>`偏向锁`>`轻量�
       3. 该调用不合逻辑地(即毫无理由地)返回
 
   - ReentrantLock锁常用类：具有synchronized语法相同功能，但功能更强大灵活
+
+    ```java
+    //模拟ReentrantLock上锁和解锁
+    volatile int state;
+    Queue<Thread> queue;
+    
+    public void lock() {
+        while(!cas(0,1)) {
+            park();
+        }
+        unlock();
+    }
+    public void unlock() {
+        state=0;
+        notify();
+    }
+    void park() {
+        queue.add(currentThread);
+        //当前线程释放CPU并阻塞在此
+        LockSupport.park();
+    }
+    void notify() {
+        Thread t = queue.header();
+        LockSupport.unpark(t);
+    }
+    ```
 
   - ReentrantReadWriteLock锁常用类：ReadWriteLock接口的实现类，通过维护Lock的子类ReadLock和WriteLock实现
 
