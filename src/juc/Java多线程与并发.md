@@ -330,7 +330,93 @@ Java SE 1.6里同步锁，一共有四种状态：`无锁`>`偏向锁`>`轻量�
           //acquireQueued(addWaiter())用于处理存在竞争关系的并发程序该如何竞争
           if (!tryAcquire(arg) &&
               acquireQueued(addWaiter(Node.EXCLUSIVE), arg))
-              selfInterrupt();
+              selfInterrupt();	//能进入if就说明当前线程使命完成或中途出现异常
+      }
+      
+      //负责将竞争线程加入到CLH结构的Sync queue
+      private Node addWaiter(Node mode) {
+          Node node = new Node(Thread.currentThread(), mode);
+          Node pred = tail;
+          //如果Sync queue不为空,直接入队尾
+          if (pred != null) {
+              node.prev = pred;
+              if (compareAndSetTail(pred, node)) {
+                  pred.next = node;
+                  return node;
+              }
+          }
+          //如果Sync queue为空
+          //1. 先初始化傀儡队头（代表占有锁工作线程）
+          //2. 然后将当前线程入队尾
+          enq(node);
+          return node;
+      }
+      
+      //先自旋尝试再次拿锁，拿不到再挂起线程
+      final boolean acquireQueued(final Node node, int arg) {
+          boolean failed = true;
+          try {
+              boolean interrupted = false;
+              //自旋尝试
+              for (;;) {
+                  final Node p = node.predecessor();
+                  //如果自旋成功获取锁（仅针对傀儡队头后第一个元素）
+                  if (p == head && tryAcquire(arg)) {
+                      setHead(node);
+                      p.next = null; // help GC
+                      failed = false;
+                      return interrupted;
+                  }
+                  //shouldParkAfterFailedAcquire()作用
+                  //1.检测prev节点waitStatus能否触发节点再次自旋
+                  //2.延迟进行park系统调用
+                  //3.更新前置节点状态为休眠（针对已park前置节点，它无法更新自己状态）
+                  //4.为保证解锁机制和唤醒后续节点抢锁机制
+                  //parkAndCheckInterrupt()作用
+                  //1.挂起当前竞争线程
+                  //2.唤醒后检测线程是否中断-未中断会促使再次自旋
+                  if (shouldParkAfterFailedAcquire(p, node) &&
+                      parkAndCheckInterrupt())
+                      interrupted = true;
+              }
+          } finally {
+              if (failed)
+                  cancelAcquire(node);
+          }
+      }
+      
+      /**
+       * Checks and updates status for a node that failed to acquire.
+       * Returns true if thread should block. This is the main signal
+       * control in all acquire loops.  Requires that pred == node.prev.
+       * @return {@code true} if thread should block
+       */
+      private static boolean shouldParkAfterFailedAcquire(Node pred, Node node) {
+          int ws = pred.waitStatus;
+          if (ws == Node.SIGNAL)
+              /*
+               * This node has already set status asking a release
+               * to signal it, so it can safely park.
+               */
+              return true;
+          if (ws > 0) {
+              /*
+               * Predecessor was cancelled. Skip over predecessors and
+               * indicate retry.
+               */
+              do {
+                  node.prev = pred = pred.prev;
+              } while (pred.waitStatus > 0);
+              pred.next = node;
+          } else {
+              /*
+               * waitStatus must be 0 or PROPAGATE.  Indicate that we
+               * need a signal, but don't park yet.  Caller will need to
+               * retry to make sure it cannot acquire before parking.
+               */
+              compareAndSetWaitStatus(pred, ws, Node.SIGNAL);
+          }
+          return false;
       }
       
       //用于判断当前线程在公平模式下是否需要排队
@@ -338,10 +424,63 @@ Java SE 1.6里同步锁，一共有四种状态：`无锁`>`偏向锁`>`轻量�
           Node t = tail;
           Node h = head;
           Node s;
+          //两种情况考虑
+          //1. h != t 判断队列是否初始化过
+          //2. ((s = h.next) == null || s.thread != Thread.currentThread())
+              //2.1 队列中元素等于1   (s = h.next) == null成立当且仅当h==t
+              //2.2 队列中元素大于1   
+          	
           return h != t &&
               ((s = h.next) == null || s.thread != Thread.currentThread());
       }
       ```
+
+      ```java
+      //释放锁：方法正常返回，队列不为空则唤醒后继节点
+      public final boolean release(int arg) {
+          if (tryRelease(arg)) {
+              Node h = head;
+              if (h != null && h.waitStatus != 0)
+                  unparkSuccessor(h);
+              return true;
+          }
+          return false;
+      }
+      
+      //
+      private void unparkSuccessor(Node node) {
+          /*
+           * If status is negative (i.e., possibly needing signal) try
+           * to clear in anticipation of signalling.  It is OK if this
+           * fails or if status is changed by waiting thread.
+           */
+          int ws = node.waitStatus;
+          if (ws < 0)
+              compareAndSetWaitStatus(node, ws, 0);
+      
+          /*
+           * Thread to unpark is held in successor, which is normally
+           * just the next node.  But if cancelled or apparently null,
+           * traverse backwards from tail to find the actual
+           * non-cancelled successor.
+           */
+          Node s = node.next;
+          if (s == null || s.waitStatus > 0) {
+              s = null;
+              for (Node t = tail; t != null && t != node; t = t.prev)
+                  if (t.waitStatus <= 0)
+                      s = t;
+          }
+          if (s != null)
+              LockSupport.unpark(s.thread);
+      }
+      ```
+
+    - 总结
+
+      1. 持有锁的线程永远不在Sync queue中（使用傀儡队头代表）
+      2. Sync queue的第二个节点表示下次能够拿锁的线程节点
+      3. 
 
   - **LockSupport**锁常用类：实现类似Thread中suspend()阻塞和resume()解除阻塞，但不会导致死锁问题
 
@@ -442,13 +581,13 @@ Java SE 1.6里同步锁，一共有四种状态：`无锁`>`偏向锁`>`轻量�
 - [13个atomic原子类](https://pdai.tech/md/java/thread/java-thread-x-juc-overview.html#atomic-%E5%8E%9F%E5%AD%90%E7%B1%BB)
 
   实现原理：volatile字段 + CAS
-  
+
   - AtomicStampedReference如何解决ABA问题?
-  
+
     该类存在一个私有静态内部Pair类，Pair类有一个可以自动更新整数stamp和引用元素值reference
-  
+
     每次调用AtomicStampedReference.compareAndSet()会判断stamp和reference是否改变
-  
+
     如果改变了其一则构造新的Pair对象并调用UNSAFE.CAS进行更新
 
 #### CAS依赖Unsafe类实现
