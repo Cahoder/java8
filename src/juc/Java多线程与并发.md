@@ -92,11 +92,21 @@
   
 - 线程的中断方式有哪些?
   1. 当线程任务完成时会中断
+  
   2. 当线程任务出现异常时会中断
+  
   3. 手动调用interrupt()迫使抛出InterruptedException异常中断，但是I/O阻塞、synchronized锁阻塞、死循环时中断无效
-  4. 调用 Executor 的 shutdownNow() 方法，相当于调用每个线程的 interrupt() 方法
-  5. 当只想中断Executor中的某一个线程，使用submit() 方法来提交一个线程，它会返回一个 Future<?> 对象，通过调用该对象的 cancel(true) 方法就可以单独中断该线程
 
+     ```java
+     interrupt()：将调用该方法的对象所表示的线程标记一个停止标记，并不是真的停止该线程。是一个实例方法。
+     interrupted()：获取当前线程的中断状态，并且会清除线程的状态标记。是一个是静态方法。
+     isInterrupted()：获取调用该方法的对象所表示的线程，不会清除线程的状态标记。是一个实例方法。
+     ```
+  
+  4. 调用 Executor 的 shutdownNow() 方法，相当于调用每个线程的 interrupt() 方法
+  
+  5. 当只想中断Executor中的某一个线程，使用submit() 方法来提交一个线程，它会返回一个 Future<?> 对象，通过调用该对象的 cancel(true) 方法就可以单独中断该线程
+  
 - 线程互斥同步
   1. synchronized（jvm层面实现、等待过程不可中断、绝对非公平的、只有一个上锁条件；1.6之前无论并发程序是否存在竞争，都会调用OS的mutex）
   2. ReentrantLock（jdk层面实现、等待过程可中断、支持公平/非公平、允许绑定多个Condition对象；如果并发程序不存在竞争，则不会调用OS的park）
@@ -330,7 +340,7 @@ Java SE 1.6里同步锁，一共有四种状态：`无锁`>`偏向锁`>`轻量�
           //acquireQueued(addWaiter())用于处理存在竞争关系的并发程序该如何竞争
           if (!tryAcquire(arg) &&
               acquireQueued(addWaiter(Node.EXCLUSIVE), arg))
-              selfInterrupt();	//能进入if就说明当前线程使命完成或中途出现异常
+              selfInterrupt();	//响应中断并重置中断状态标识
       }
       
       //负责将竞争线程加入到CLH结构的Sync queue
@@ -374,7 +384,10 @@ Java SE 1.6里同步锁，一共有四种状态：`无锁`>`偏向锁`>`轻量�
                   //4.为保证解锁机制和唤醒后续节点抢锁机制
                   //parkAndCheckInterrupt()作用
                   //1.挂起当前竞争线程
-                  //2.唤醒后检测线程是否中断-未中断会促使再次自旋
+                  //2.唤醒后检测线程是否被外部中断过
+                  //2.1未中断会促使再次自旋
+                  //2.2中断过会进行标识,响应中断（AQS取锁排队过程不允许外部中断）
+                  //3.唤醒后的线程的中断状态会被置为true,需要重置促使再次自旋
                   if (shouldParkAfterFailedAcquire(p, node) &&
                       parkAndCheckInterrupt())
                       interrupted = true;
@@ -424,12 +437,20 @@ Java SE 1.6里同步锁，一共有四种状态：`无锁`>`偏向锁`>`轻量�
           Node t = tail;
           Node h = head;
           Node s;
-          //两种情况考虑
-          //1. h != t 判断队列是否初始化过
-          //2. ((s = h.next) == null || s.thread != Thread.currentThread())
-              //2.1 队列中元素等于1   (s = h.next) == null成立当且仅当h==t
-              //2.2 队列中元素大于1   
-          	
+          //1. h != t 用于判断队列元素是否大于1,但队列初始化在并发环境有可能会导致此判断成立
+          /*
+          	private Node enq(final Node node) {
+          		...
+          			if (t == null) { // Must initialize
+              			if (compareAndSetHead(new Node()))
+                      		tail = head;   //这段代码存在并发同步问题: head=newNode tail=null
+              		}
+              	...
+          	}
+          */
+          //2. ((s = h.next) == null || s.thread != Thread.currentThread()) 用于判断队列元素是否等于1
+          //2.1 (s = h.next) == null 用于解决队列是否为初始化一半的特例
+          //2.2 s.thread != Thread.currentThread() 用于判断自己是否为傀儡头后首个线程
           return h != t &&
               ((s = h.next) == null || s.thread != Thread.currentThread());
       }
@@ -480,7 +501,6 @@ Java SE 1.6里同步锁，一共有四种状态：`无锁`>`偏向锁`>`轻量�
 
       1. 持有锁的线程永远不在Sync queue中（使用傀儡队头代表）
       2. Sync queue的第二个节点表示下次能够拿锁的线程节点
-      3. 
 
   - **LockSupport**锁常用类：实现类似Thread中suspend()阻塞和resume()解除阻塞，但不会导致死锁问题
 
@@ -495,6 +515,8 @@ Java SE 1.6里同步锁，一共有四种状态：`无锁`>`偏向锁`>`轻量�
       3. 该调用不合逻辑地(即毫无理由地)返回
 
   - ReentrantLock锁常用类：具有synchronized语法相同功能，但功能更强大灵活
+
+    ReentrantLock.lockInterruptibly()方法允许打断阻塞线程重新抢锁
 
     ```java
     //模拟ReentrantLock上锁和解锁
