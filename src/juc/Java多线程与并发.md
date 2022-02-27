@@ -504,6 +504,8 @@ Java SE 1.6里同步锁，一共有四种状态：`无锁`>`偏向锁`>`轻量�
 
       1. 持有锁的线程永远不在Sync queue中（使用傀儡队头代表）
       2. Sync queue的第二个节点表示下次能够拿锁的线程节点
+      2. 每个节点由前驱节点唤醒，且前驱节点状态为`SIGNAL`
+      2. Condition.signal()方法实现Condition queue中的结点向Sync queue转移
 
   - **LockSupport**锁常用类：实现类似Thread中suspend()阻塞和resume()解除阻塞，但不会导致死锁问题
 
@@ -551,9 +553,33 @@ Java SE 1.6里同步锁，一共有四种状态：`无锁`>`偏向锁`>`轻量�
 
   - CountDownLatch工具类：同步辅助类，在一组其他线程完成任务之前，允许阻塞一个或多个线程等待
 
+    ```java
+    //如果计数到达0，则释放所有等待的线程
+    //CountDownLatch流程结束后，下一步执行者是主线程，因此具有不可重复性
+    ```
+
   - CyclicBarrier工具类：同步辅助类，允许一组线程互相等待，直到到达某个公共屏障点
 
+    ```java
+    //内部依托ReentrantLock和Condition实现阻塞同步
+    //如果计数到达屏障点，则进入下一步执行者（允许是“其他线程”），因此具有可重复性
+    ```
+
   - Semaphore工具类：本质上该信号量维护了一个许可集
+
+    ```java
+    //单独使用Semaphore是不会使用到AQS的Condition queue
+    
+    /**
+      场景问题：
+      1. semaphore初始化有10个令牌，11个线程同时各调用1次acquire方法，会发生什么?
+        答：拿不到令牌的线程阻塞，不会继续往下运行。
+      2. semaphore初始化有10个令牌，一个线程重复调用11次acquire方法，会发生什么?
+        答：线程阻塞，不会继续往下运行。（令牌没有重入的概念）
+      3. semaphore初始化有2个令牌，一个线程调用1次release方法，然后一次性获取3个令牌，会获取到吗?
+        答：能，release会添加令牌，并不会以初始化的大小为准。
+    **/
+    ```
 
   - Exchanger工具类：允许两个线程之间的数据交换
 
@@ -578,6 +604,11 @@ Java SE 1.6里同步锁，一共有四种状态：`无锁`>`偏向锁`>`轻量�
   - SynchronousQueue：不存储元素的同步队列，通过CAS实现并发访问，支持FIFO（TransferQueue）和FILO（TransferStack）
 
   - CopyOnWriteArrayList：添加和修改操作都是复制一份后（线程安全的替换）原本实现，并发读次数>并发写次数时效率很高
+
+    **缺陷**
+
+    1. 写操作需要复制数组，在原数组比较大的情况下容易触发young gc或者full gc
+    2. 不适用于实时一致性要求比较高的情景（拷贝/新增元素存在耗时，只能保证最终一致性）
 
   - CopyOnWriteArraySet：不同与CopyOnWriteArrayList，添加和修改会调用addIfAbsent遍历数组去重，因此性能会稍逊
 
@@ -616,7 +647,7 @@ Java SE 1.6里同步锁，一共有四种状态：`无锁`>`偏向锁`>`轻量�
     
       ```java
       //1. segment[k]通过CAS初始化
-      //2. 添加节点到链表的操作是插入链表头，并发需考虑当get操作在put之后时，保证刚插入链表头的节点被读取（依赖setEntryAt方法中的UNSAFE.putOrderedObject实现）
+      //2. 添加节点到链表的操作是插入链表头，并发需考虑当get操作在put之后时，保证刚插入链表头的节点被读取（依赖setEntryAt()中的UNSAFE.putOrderedObject实现）
       //3. segment[k]内HashEntry<K,V>[]的扩容保证可见性（使用volatile修饰）
       ```
     
@@ -653,24 +684,142 @@ Java SE 1.6里同步锁，一共有四种状态：`无锁`>`偏向锁`>`轻量�
     
       **put操作**
     
+      ```java
       
+      ```
     
-      **remove操作**
-    
+      **get操作**
       
+      ```java
+      //1. 计算key的hash值
+      //2. 定位数组下标：(n-1) & hash
+      //3. 根据该下标处结点性质进行相应查找
+      //3.1 该位置处为null，则返回null
+      //3.2 该位置处值equals传入的key，返回该value
+      //3.3 该位置处hash值<0，说明正在扩容/或为红黑树，调用xxxNode.find()
+      //3.4 该位置处是链表，遍历链表进行equals判断
+      ```
 
 - executors线程池类关系总览
 
   ![](https://pdai-1257820000.cos.ap-beijing.myqcloud.com/pdai.tech/public/_images/thread/java-thread-x-juc-executors-1.png)
 
   - Executors工具类：负责创建线程池服务，线程池工厂配置等
+
   - Executor接口：提供一种"将任务提交"与"每个任务如何运作的机制"的抽象方法
+
   - ExecutorService接口：继承自Executor，负责管理任务的提交和起止，以及为异步任务生成Future的能力
+
   - ScheduledExecutorService接口：继承自Executor，定时或延迟版的ExecutorService
+
   - AbstractExecutorService抽象类：ExecutorService接口方法的默认实现类
+
   - FutureTask类：实现Callable和Runnable任务的异步能力，其线程安全由CAS来保证
+
+    **核心属性**
+
+    ```java
+    //内部持有的callable任务，运行完毕后置空
+    private Callable<V> callable;
+    
+    //从get()中返回的结果或抛出的异常
+    private Object outcome; // non-volatile, protected by state reads/writes
+    
+    //运行callable的线程
+    private volatile Thread runner;
+    
+    //使用Treiber栈保存等待线程
+    private volatile WaitNode waiters;
+    
+    static final class WaitNode {
+        volatile Thread thread;
+        volatile WaitNode next;
+        WaitNode() { thread = Thread.currentThread(); }
+    }
+    
+    //任务状态：NEW(0) COMPLETING(1) NORMAL(2) EXCEPTIONAL(3)
+    //        CANCELLED(4) INTERRUPTING(5) INTERRUPTED(6)
+    private volatile int state;
+    ```
+
+    **核心方法**
+
+    ```java
+    public V get() throws InterruptedException, ExecutionException {
+        int s = state;
+        if (s <= COMPLETING) s = awaitDone(false, 0L);  //阻塞等待结果
+        return report(s);
+    }
+    private int awaitDone(boolean timed, long nanos) throws InterruptedException {
+        //如果发生中断，先清除中断状态，调用removeWaiter移除等待节点，抛出InterruptedException
+        //否则自旋等待任务完成，或任务因为中断或超时而终止，返回任务的完成状态
+    }
+    
+    public boolean cancel(boolean mayInterruptIfRunning) {
+    	//当且仅当state状态为NEW时，CAS(state, mayInterruptIfRunning ? INTERRUPTING : CANCELLED)
+        //当state状态不是NEW，根据mayInterruptIfRunning决定是否运行中任务也可中断
+        //中断操作完成后，调用finishCompletion移除并唤醒所有等待线程
+    }
+    ```
+
   - ThreadPoolExecutor类：AbstractExecutorService的实现类，提供线程池来执行任务（通过Executors的工厂方法进行线程池配置）
+
+    **七大构造参数**
+
+    ```java
+    public ThreadPoolExecutor(int corePoolSize,
+                                  int maximumPoolSize,
+                                  long keepAliveTime,
+                                  TimeUnit unit,
+                                  BlockingQueue<Runnable> workQueue,
+                                  RejectedExecutionHandler handler)
+    ```
+
+    **Executors三种创建方式**
+
+    ```java
+    /*
+    	线程池中永远只存在一个线程，如果该线程异常结束则会重新创建一个线程
+    	由于无界队列的存在，那么永远不会触发饱和拒绝策略（导致OOM）
+    */
+    public static ExecutorService newSingleThreadExecutor() {
+        return new FinalizableDelegatedExecutorService
+            (new ThreadPoolExecutor(1, 1,
+                                    0L, TimeUnit.MILLISECONDS,
+                                    new LinkedBlockingQueue<Runnable>()));
+    }
+    /*
+    	maximumPoolSize  keepAliveTime  unit为有用参数
+    	无空闲线程就新创建一个，因此线程数会达到Integer.MAX_VALUE（导致OOM）
+    */
+    public static ExecutorService newCachedThreadPool() {
+        return new ThreadPoolExecutor(0, Integer.MAX_VALUE,
+                                        60L, TimeUnit.SECONDS,
+                                        new SynchronousQueue<Runnable>());
+    }
+    /*
+    	线程池的线程数量达到corePoolSize，即使无任务执行也不会释放空闲线程
+    	maximumPoolSize  keepAliveTime  unit为无用参数
+    	LinkedBlockingQueue(队列容量为Integer.MAX_VALUE)为无界队列
+    	由于无界队列的存在，那么永远不会触发饱和拒绝策略（导致OOM）
+    */
+    public static ExecutorService newFixedThreadPool(int nThreads) {
+        return new ThreadPoolExecutor(nThreads, nThreads,
+                                    0L, TimeUnit.MILLISECONDS,
+                                    new LinkedBlockingQueue<Runnable>());
+    }
+    ```
+
+    **配置线程池考虑因素**
+
+    ```java
+    CPU密集型: 尽可能少的线程，Ncpu+1
+    IO密集型: 尽可能多的线程, Ncpu*2
+    混合型: CPU密集型任务与IO密集型任务的执行时间差别较小，拆分为两个线程池；否则没有必要拆分
+    ```
+
   - ScheduledThreadExecutor类：定时或延迟版的ThreadPoolExecutor
+
   - Fork/Join框架：JDK7加入的一个线程池类，采用分治算法且能并行执行，充分利用多核CPU提高运算性能
 
 - [13个atomic原子类](https://pdai.tech/md/java/thread/java-thread-x-juc-overview.html#atomic-%E5%8E%9F%E5%AD%90%E7%B1%BB)
@@ -684,6 +833,108 @@ Java SE 1.6里同步锁，一共有四种状态：`无锁`>`偏向锁`>`轻量�
     每次调用AtomicStampedReference.compareAndSet()会判断stamp和reference是否改变
 
     如果改变了其一则构造新的Pair对象并调用UNSAFE.CAS进行更新
+
+#### ThreadLocal详解
+
+- 实现原理
+
+  1. 首先获取当前线程对象t，然后从线程t中获取成员属性`ThreadLocal.ThreadLocalMap threadLocals`
+  2. 如果当前线程的`threadLocals != null`并且`ThreadLocal.get(key) != null`则返回其value
+  3. 如果当前线程的`threadLocals != null`但`ThreadLocal.get(key) == null`则新建并put进map里，然后返回其value
+  4. 如果当前线程的`threadLocals == null`则初始化threadLocals然后put进map里，最后返回其value
+
+  ```java
+  public class Thread implements Runnable {
+      ThreadLocal.ThreadLocalMap threadLocals = null;
+      ThreadLocalMap getMap(Thread t) {
+          return t.threadLocals;
+      }
+      void createMap(Thread t, T firstValue) {
+          t.threadLocals = new ThreadLocalMap(this, firstValue);
+      }
+  }
+  
+  static class ThreadLocal.ThreadLocalMap {
+      //使用Entry数组来存储Key/Value
+      private Entry[] table;
+      //Key为弱引用，随时面临被GC
+      static class Entry extends WeakReference<ThreadLocal<?>> {
+          Object value;
+          Entry(ThreadLocal<?> k, Object v) {
+              super(k);
+              value = v;
+          }
+      }
+  }
+  ```
+
+- 内存泄漏分析
+
+  ```java
+  import java.util.concurrent.LinkedBlockingQueue;
+  import java.util.concurrent.ThreadPoolExecutor;
+  import java.util.concurrent.TimeUnit;
+  
+  public class ThreadLocalDemo {
+      static class LocalVariable {
+          private Long[] a = new Long[1024 * 1024];
+      }
+  
+      /* (1) 使用线程池来操作ThreadLocal对象确实会造成内存泄露, 
+             因为对于线程池里面不会销毁的线程,
+             里面总会存在着<ThreadLocal, LocalVariable>的强引用
+      */
+      final static ThreadPoolExecutor poolExecutor = new ThreadPoolExecutor(5, 5, 1, TimeUnit.MINUTES,
+              new LinkedBlockingQueue<>());
+      /* (2) 因为final static修饰的ThreadLocal并不会释放, 
+             而ThreadLocalMap对于Key虽然是弱引用, 但是强引用不会释放, 
+             因此创建的LocalVariable对象也不会释放, 就造成了内存泄露。
+             注：如果LocalVariable对象不是一个大对象的话, 其实泄露的并不严重, 
+             ( 泄露的内存 = 核心线程数 * sizeof(LocalVariable) )
+      */
+      final static ThreadLocal<LocalVariable> localVariable = new ThreadLocal<LocalVariable>();
+  
+      public static void main(String[] args) throws InterruptedException {
+          // (3)
+          Thread.sleep(5000 * 4);
+          for (int i = 0; i < 50; ++i) {
+              poolExecutor.execute(new Runnable() {
+                  public void run() {
+                      // (4)
+                      localVariable.set(new LocalVariable());
+                      /* (5) 为了避免出现内存泄露的情况，
+                             ThreadLocal提供了一个清除线程中对象的remove方法，
+                             其实内部实现就是调用ThreadLocalMap的remove方法
+                      */
+                      System.out.println("use local varaible" + localVariable.get());
+                      localVariable.remove();
+                  }
+              });
+          }
+          // (6)
+          System.out.println("pool execute over");
+      }
+  }
+  
+  //ThreadLocalMap的remove方法
+  private void remove(ThreadLocal<?> key) {
+      Entry[] tab = table;
+      int len = tab.length;
+      int i = key.threadLocalHashCode & (len-1);
+      for (Entry e = tab[i];
+           e != null;
+           e = tab[i = nextIndex(i, len)]) {
+          //找到Key对应的Entry
+          if (e.get() == key) {
+              //清除Entry的Key(ThreadLocal置空)
+              e.clear();
+              //随后清除过期的Entry即可避免内存泄露
+              expungeStaleEntry(i);
+              return;
+          }
+      }
+  }
+  ```
 
 #### CAS依赖Unsafe类实现
 
