@@ -6,10 +6,12 @@ import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
 
 /**
- * 现代化反射API-字节码层面反射调用
+ * 现代化反射API-字节码层面反射调用(轻量级)
  * JDK1.7+ support
- * @version 1.0
- * @since 2023/3/29
+ * 理论上支持任何语言
+ *
+ * Reflect-Java代码层面的方法调用(重量级)
+ * 仅支持Java语言
  **/
 public class MethodHandleReflect {
 
