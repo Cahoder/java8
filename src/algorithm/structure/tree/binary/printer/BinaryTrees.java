@@ -1,7 +1,5 @@
 package algorithm.structure.tree.binary.printer;
 
-import algorithm.Main;
-
 import java.util.LinkedList;
 import java.util.Queue;
 

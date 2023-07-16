@@ -1,5 +1,6 @@
 package algorithm;
 
+import algorithm.structure.heap.BinaryHeap;
 import algorithm.structure.liner.list.*;
 import algorithm.structure.liner.queue.Deque;
 import algorithm.structure.liner.queue.DequeCircle;
@@ -37,7 +38,32 @@ public class Main {
 //        MySetTest();
 //        ListSet_TreeSet_EfficiencyTest();
 //        MyMapTest();
-        MyUnionFindTest();
+//        MyUnionFindTest();
+        MyBinaryHeapTest();
+    }
+
+    private static void MyBinaryHeapTest() {
+        BinaryHeap<Integer> heap = new BinaryHeap<>();
+        for (int i = 0; i < 12; i++) heap.add((int) (Math.random() * 100));
+        BinaryTrees.print(heap);
+        System.out.printf("%n");
+        System.out.println("Heap Top : "  + heap.get());
+
+        for (int i = 0; i < 7; i++) heap.remove();
+        BinaryTrees.print(heap);
+        System.out.printf("%n");
+        System.out.println("Heap Top : "  + heap.get());
+
+        Integer[] elements = new Integer[12];
+        for (int i = 0; i < 12; i++) elements[i] = (int) (Math.random() * 100);
+        BinaryHeap<Integer> heap1 = new BinaryHeap<>(elements);
+        BinaryTrees.print(heap1);
+        System.out.printf("%n");
+        System.out.println("Heap Top : "  + heap1.get());
+        for (int i = 0; i < 12; i++) elements[i] = null;
+        BinaryTrees.print(heap1);
+        System.out.printf("%n");
+        System.out.println("Heap Top : "  + heap1.get());
     }
 
     private static void MyUnionFindTest() {
